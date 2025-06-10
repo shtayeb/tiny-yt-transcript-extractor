@@ -3,7 +3,7 @@
   "name": "YouTube Transcript Extractor Plus",
   "version": "1.1",
   "description": "Improved script to extract YouTube video transcripts with UI.",
-  "permissions": ["activeTab", "scripting", "clipboardWrite"],
+  "permissions": ["activeTab", "scripting", "clipboardWrite", "notifications"],
   "host_permissions": ["*://*.youtube.com/*"],
   "action": {
     "default_title": "Toggle Transcript Extractor"

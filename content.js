@@ -1,557 +1,571 @@
-(() => {
-  let extensionPanel = null; // To hold our UI panel
-  let lastTranscript = ""; // To store the last fetched transcript
+// content.js
+let transcriptButton = null;
+let transcriptDropdown = null;
+let lastTranscript = "";
+let includeTimestamps = true;
 
-  // --- Helper Functions ---
-
-  /**
-   * Waits for an element to appear in the DOM.
-   * @param {string} selector - The CSS selector.
-   * @param {Element} parent - The parent element to search within (default: document).
-   * @param {number} timeout - Max time to wait in ms.
-   * @returns {Promise<Element|null>}
-   */
-  function waitForElement(selector, parent = document, timeout = 10000) {
-    return new Promise((resolve) => {
-      const intervalTime = 100;
-      let elapsedTime = 0;
-      const interval = setInterval(() => {
-        const element = parent.querySelector(selector);
-        if (element) {
-          clearInterval(interval);
-          resolve(element);
-        } else if (elapsedTime >= timeout) {
-          clearInterval(interval);
-          resolve(null); // Element not found within timeout
-        }
-        elapsedTime += intervalTime;
-      }, intervalTime);
-    });
-  }
-
-  /**
-   * Shows a temporary notification message.
-   * @param {string} message - The message to display.
-   * @param {'success'|'error'|'info'} type - Type of message for styling.
-   * @param {number} duration - How long to show the message in ms.
-   */
-  function showNotification(message, type = "info", duration = 3000) {
-    if (!extensionPanel) return; // Don't show if panel isn't there
-
-    const notificationArea = extensionPanel.querySelector(
-      ".yt-transcript-fetcher-status",
-    );
-    if (!notificationArea) {
-      console.warn("Notification area not found in panel.");
-      alert(`[YT Transcript] ${type.toUpperCase()}: ${message}`); // Fallback
+// Utility function to wait for an element to appear
+function waitForElement(selector, timeout = 5000) {
+  return new Promise((resolve, reject) => {
+    const element = document.querySelector(selector);
+    if (element) {
+      resolve(element);
       return;
     }
 
-    notificationArea.textContent = message;
-    notificationArea.className = `yt-transcript-fetcher-status yt-transcript-fetcher-${type}`; // for styling
-    notificationArea.style.display = "block";
+    const observer = new MutationObserver((mutations, obs) => {
+      const element = document.querySelector(selector);
+      if (element) {
+        obs.disconnect();
+        resolve(element);
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
 
     setTimeout(() => {
-      notificationArea.style.display = "none";
-      notificationArea.textContent = "";
-    }, duration);
+      observer.disconnect();
+      resolve(null); // Return null instead of rejecting
+    }, timeout);
+  });
+}
+
+// Show notification to user
+function showNotification(message, type = "info") {
+  // Remove existing notification if any
+  const existingNotification = document.getElementById(
+    "yt-transcript-notification",
+  );
+  if (existingNotification) {
+    existingNotification.remove();
   }
 
-  /**
-   * Copies text to the clipboard.
-   * @param {string} text - The text to copy.
-   */
-  async function copyToClipboard(text) {
-    if (!text) {
-      showNotification("Nothing to copy.", "error");
-      return;
+  const notification = document.createElement("div");
+  notification.id = "yt-transcript-notification";
+  notification.className = `yt-transcript-notification ${type}`;
+  notification.textContent = message;
+
+  document.body.appendChild(notification);
+
+  // Auto remove after 3 seconds
+  setTimeout(() => {
+    if (notification?.parentNode) {
+      notification.remove();
     }
-    try {
+  }, 3000);
+}
+
+// Copy text to clipboard
+async function copyToClipboard(text) {
+  if (!text) {
+    showNotification("No transcript to copy", "error");
+    return;
+  }
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text);
       showNotification("Transcript copied to clipboard!", "success");
-    } catch (err) {
-      console.error("Failed to copy text: ", err);
-      showNotification("Failed to copy. See console for details.", "error");
-      // Fallback for older browsers or if navigator.clipboard is not available (e.g. insecure context)
+    } else {
+      // Fallback for older browsers or non-secure contexts
       const textArea = document.createElement("textarea");
       textArea.value = text;
-      textArea.style.position = "fixed"; // Prevent scrolling to bottom of page in MS Edge.
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
       document.body.appendChild(textArea);
       textArea.focus();
       textArea.select();
-      try {
-        document.execCommand("copy");
-        showNotification("Transcript copied (fallback method)!", "success");
-      } catch (execErr) {
-        console.error("Fallback copy failed: ", execErr);
-        showNotification("Copying failed. Please copy manually.", "error");
+
+      const successful = document.execCommand("copy");
+      textArea.remove();
+
+      if (successful) {
+        showNotification("Transcript copied to clipboard!", "success");
+      } else {
+        throw new Error("Copy command failed");
       }
-      document.body.removeChild(textArea);
     }
+  } catch (err) {
+    console.error("Failed to copy text: ", err);
+    showNotification("Failed to copy transcript", "error");
+  }
+}
+
+// Download text as file
+function downloadAsFile(text, filename) {
+  if (!text) {
+    showNotification("No transcript to download", "error");
+    return;
   }
 
-  /**
-   * Downloads text as a .txt file.
-   * @param {string} text - The text content.
-   * @param {string} filename - The desired filename.
-   */
-  function downloadAsFile(text, filename = "transcript.txt") {
-    if (!text) {
-      showNotification("Nothing to download.", "error");
-      return;
-    }
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showNotification(`Transcript downloaded as ${filename}`, "success");
-  }
+  const blob = new Blob([text], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showNotification("Transcript downloaded!", "success");
+}
 
-  // --- Core Transcript Logic ---
+// Fetch transcript from YouTube's native transcript panel
+async function fetchTranscript(withTimestamps = true) {
+  try {
+    showNotification("Fetching transcript...", "info");
+    lastTranscript = "";
 
-  async function fetchTranscript(shouldToggleTimestamps) {
-    showNotification("Fetching transcript...", "info", 5000); // Longer duration for fetching
-    lastTranscript = ""; // Reset
-
-    // 1. Find and click the "More actions" (three dots) button if transcript panel is not already open
+    // Check if transcript panel is already open
     const transcriptContainerSelector =
       ".ytd-transcript-segment-list-renderer#segments-container";
     let transcriptContainer = document.querySelector(
       transcriptContainerSelector,
     );
 
-    const showTranscriptButtonSelector =
-      '#primary-button > ytd-button-renderer > yt-button-shape > button[aria-label="Show transcript"]'; // English, Russian common
-    // More robust: find by menu item text if the direct button isn't easily selectable or language dependent
-
+    // If transcript panel is not open, try to open it
     if (!transcriptContainer || !transcriptContainer.offsetParent) {
-      // offsetParent is null if hidden
-      showNotification(
-        "Transcript panel not open. Attempting to open...",
-        "info",
-      );
+      showNotification("Opening transcript panel...", "info");
 
-      // Try direct show transcript button as per original script
-      const directShowTranscriptButton = await waitForElement(
+      // Look for the "Show transcript" button
+      const showTranscriptButtonSelector =
+        '#primary-button > ytd-button-renderer > yt-button-shape > button[aria-label="Show transcript"]';
+      const showTranscriptButton = await waitForElement(
         showTranscriptButtonSelector,
-        document,
         3000,
       );
 
-      if (directShowTranscriptButton) {
-        directShowTranscriptButton.click();
+      if (showTranscriptButton) {
+        showTranscriptButton.click();
       } else {
-        showNotification(
-          "Could not find 'More actions' or 'Show transcript' button.",
-          "error",
+        throw new Error(
+          "Could not find 'Show transcript' button. Make sure transcript is available for this video.",
         );
-        return null;
       }
 
-      // Wait for transcript panel to actually load its content
+      // Wait for transcript panel to load
       transcriptContainer = await waitForElement(
         transcriptContainerSelector,
-        document,
         5000,
       );
       if (!transcriptContainer) {
-        showNotification(
-          "Transcript panel did not load after clicking 'Show transcript'.",
-          "error",
+        throw new Error(
+          "Transcript panel did not load. Transcript may not be available for this video.",
         );
-        return null;
       }
-    } else {
-      showNotification("Transcript panel already open.", "info");
     }
 
-    // 2. (Optional) Toggle timestamps
-    if (shouldToggleTimestamps) {
-      showNotification("Attempting to toggle timestamps...", "info");
-      // The "Toggle timestamps" button is in a menu *within* the transcript panel
+    // Toggle timestamps if needed
+    if (!withTimestamps) {
       const transcriptMenuButton = await waitForElement(
         "yt-icon-button#menu-button",
-        document.querySelector("ytd-transcript-renderer"),
         3000,
       );
-      if (!transcriptMenuButton) {
-        showNotification(
-          "Could not find transcript menu button (for toggling timestamps).",
-          "error",
-        );
-        // Proceed without toggling if button not found, but inform user
-      } else {
+
+      if (transcriptMenuButton) {
         transcriptMenuButton.click();
-        // Wait for the transcript-specific menu to appear
-        const transcriptMenuItemsContainer = await waitForElement(
+
+        // Wait for menu to appear
+        const menuItems = await waitForElement(
           "#items.ytd-menu-popup-renderer",
-          document.body,
           2000,
-        ); // document.body because menu is often appended there
-        if (!transcriptMenuItemsContainer) {
-          showNotification("Transcript menu items did not appear.", "error");
-        } else {
-          // This selector is very specific, relying on the text content might be better
-          // but for "Toggle timestamps" the structure is usually fixed.
-          // Let's find it by text for robustness (though it could be localized)
-          let toggleButton = null;
-          const items = transcriptMenuItemsContainer.querySelectorAll(
+        );
+
+        if (menuItems) {
+          const items = menuItems.querySelectorAll(
             "ytd-menu-service-item-renderer tp-yt-paper-item",
           );
           for (const item of items) {
-            // Check for known text for toggling timestamps (might need localization)
+            const text = item.textContent.trim().toLowerCase();
             if (
-              item.textContent
-                .trim()
-                .toLowerCase()
-                .includes("toggle timestamps") ||
-              item.textContent
-                .trim()
-                .toLowerCase()
-                .includes("показать / скрыть временные метки")
+              text.includes("toggle timestamps") ||
+              text.includes("hide timestamps")
             ) {
-              // Russian example
-              toggleButton = item;
+              item.click();
+              await new Promise((resolve) => setTimeout(resolve, 500)); // Wait for toggle
               break;
             }
           }
-
-          if (toggleButton) {
-            toggleButton.click();
-            showNotification("Timestamps toggled.", "success");
-            // Give a brief moment for the DOM to update after toggling
-            await new Promise((resolve) => setTimeout(resolve, 500));
-          } else {
-            showNotification(
-              "Could not find 'Toggle timestamps' button in menu.",
-              "error",
-            );
-          }
-          // Attempt to close the menu, e.g. by clicking menu button again or an overlay
-          // Often, clicking the item closes the menu. If not, this is tricky.
-          // For now, assume it closes. If it doesn't, clicking outside or pressing Escape might be needed.
         }
       }
     }
 
-    // 3. Get the transcript text
-    // Re-fetch container in case DOM changed after toggling timestamps
-    transcriptContainer = await waitForElement(
-      transcriptContainerSelector,
-      document,
-      2000,
-    );
+    // Re-fetch container after potential timestamp toggle
+    transcriptContainer = document.querySelector(transcriptContainerSelector);
     if (!transcriptContainer) {
-      showNotification(
-        "Transcript content area not found after operations.",
-        "error",
-      );
-      return null;
+      throw new Error("Transcript container not found after operations.");
     }
 
-    // Use innerText to get visible text, which respects timestamp visibility
-    // If timestamps are on, they are part of innerText. If off, they are not.
+    // Extract transcript text
     const rawTranscript = transcriptContainer.innerText;
 
     if (!rawTranscript || rawTranscript.trim() === "") {
-      showNotification("Transcript is empty or not available.", "error");
-      return null;
+      throw new Error("Transcript is empty or not available.");
     }
 
-    // Basic cleaning: remove multiple newlines that sometimes occur
+    // Clean up transcript text
     lastTranscript = rawTranscript.replace(/\n\s*\n/g, "\n").trim();
 
     showNotification("Transcript fetched successfully!", "success");
-    updateTranscriptDisplay(lastTranscript);
     return lastTranscript;
+  } catch (error) {
+    console.error("Error fetching transcript:", error);
+    showNotification(`Error: ${error.message}`, "error");
+    return null;
   }
+}
 
-  // --- UI Creation and Management ---
+// Create transcript button in YouTube UI
+function createTranscriptButton() {
+  if (transcriptButton) return; // Already exists
 
-  function createExtensionPanel() {
-    if (extensionPanel) return; // Already exists
+  // Wait for the target container to be available
+  waitForElement("#menu > ytd-menu-renderer.ytd-watch-metadata")
+    .then((container) => {
+      // Create button container
+      const buttonContainer = document.createElement("div");
+      buttonContainer.className = "yt-transcript-button-container";
 
-    extensionPanel = document.createElement("div");
-    extensionPanel.id = "yt-transcript-fetcher-panel";
-    extensionPanel.innerHTML = `
-            <div class="yt-transcript-fetcher-header">
-                <h3>YouTube Transcript Extractor</h3>
-                <button id="yt-transcript-fetcher-close" title="Close Panel">&times;</button>
-            </div>
-            <div class="yt-transcript-fetcher-controls">
-                <label>
-                    <input type="checkbox" id="yt-transcript-toggle-timestamps" checked> Toggle Timestamps
-                </label>
-                <button id="yt-transcript-fetch-btn">Get Transcript</button>
-            </div>
-            <div class="yt-transcript-fetcher-status" style="display:none;"></div>
-            <textarea id="yt-transcript-output" readonly placeholder="Transcript will appear here..."></textarea>
-            <div class="yt-transcript-fetcher-actions">
-                <button id="yt-transcript-copy-btn" disabled>Copy</button>
-                <button id="yt-transcript-download-btn" disabled>Download .txt</button>
-            </div>
-        `;
-    document.body.appendChild(extensionPanel);
-    addPanelStyles();
-    addPanelEventListeners();
-    makeDraggable(
-      extensionPanel.querySelector(".yt-transcript-fetcher-header"),
-      extensionPanel,
-    );
-  }
+      // Create the main transcript button
+      transcriptButton = document.createElement("button");
+      transcriptButton.id = "yt-transcript-button";
+      transcriptButton.className = "yt-transcript-button";
+      transcriptButton.innerHTML = `
+        <svg class="yt-transcript-icon" viewBox="0 0 24 24" width="16" height="16">
+          <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" fill="currentColor"/>
+          <path d="M12 14L8 18L10.5 20.5L12 19L15.5 22.5L17 21L12 14Z" fill="currentColor"/>
+        </svg>
+        <span>Transcript</span>
+        <svg class="yt-transcript-dropdown-arrow" viewBox="0 0 24 24" width="12" height="12">
+          <path d="M7 10L12 15L17 10H7Z" fill="currentColor"/>
+        </svg>
+      `;
 
-  function updateTranscriptDisplay(transcriptText) {
-    const outputArea = extensionPanel.querySelector("#yt-transcript-output");
-    const copyBtn = extensionPanel.querySelector("#yt-transcript-copy-btn");
-    const downloadBtn = extensionPanel.querySelector(
-      "#yt-transcript-download-btn",
-    );
+      // Create dropdown menu
+      transcriptDropdown = document.createElement("div");
+      transcriptDropdown.id = "yt-transcript-dropdown";
+      transcriptDropdown.className = "yt-transcript-dropdown";
+      transcriptDropdown.innerHTML = `
+        <div class="yt-transcript-dropdown-item" data-action="copy">
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <path d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z" fill="currentColor"/>
+          </svg>
+          Copy
+        </div>
+        <div class="yt-transcript-dropdown-item" data-action="download">
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" fill="currentColor"/>
+          </svg>
+          Download
+        </div>
+        <div class="yt-transcript-dropdown-item timestamp-option">
+          <input type="checkbox" id="yt-transcript-timestamps-checkbox" checked>
+          <label for="yt-transcript-timestamps-checkbox">Include Timestamps</label>
+        </div>
+      `;
 
-    if (transcriptText) {
-      outputArea.value = transcriptText;
-      copyBtn.disabled = false;
-      downloadBtn.disabled = false;
-    } else {
-      outputArea.value = "Failed to fetch transcript or transcript is empty.";
-      copyBtn.disabled = true;
-      downloadBtn.disabled = true;
+      buttonContainer.appendChild(transcriptButton);
+      buttonContainer.appendChild(transcriptDropdown);
+      container.appendChild(buttonContainer);
+
+      addButtonStyles();
+      addButtonEventListeners();
+    })
+    .catch((error) => {
+      console.error("Failed to inject transcript button:", error);
+    });
+}
+
+// Add event listeners to the button and dropdown
+function addButtonEventListeners() {
+  if (!transcriptButton || !transcriptDropdown) return;
+
+  // Toggle dropdown on button click
+  transcriptButton.addEventListener("click", (e) => {
+    e.stopPropagation();
+    transcriptDropdown.classList.toggle("show");
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".yt-transcript-button-container")) {
+      transcriptDropdown.classList.remove("show");
     }
-  }
+  });
 
-  function addPanelEventListeners() {
-    if (!extensionPanel) return;
+  // Handle dropdown item clicks
+  transcriptDropdown.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const item = e.target.closest('.yt-transcript-dropdown-item');
+    if (!item) return;
 
-    extensionPanel
-      .querySelector("#yt-transcript-fetch-btn")
-      .addEventListener("click", async () => {
-        const toggleTimestampsCheckbox = extensionPanel.querySelector(
-          "#yt-transcript-toggle-timestamps",
-        );
-        await fetchTranscript(toggleTimestampsCheckbox.checked);
-      });
+    // Don't close dropdown for timestamp checkbox
+    if (!item.classList.contains('timestamp-option')) {
+      transcriptDropdown.classList.remove('show');
+    }
 
-    extensionPanel
-      .querySelector("#yt-transcript-copy-btn")
-      .addEventListener("click", () => {
+    const action = item.getAttribute('data-action');
+    
+    switch (action) {
+      case 'copy': {
+        if (!lastTranscript) {
+          await fetchTranscript(includeTimestamps);
+        }
         copyToClipboard(lastTranscript);
-      });
-
-    extensionPanel
-      .querySelector("#yt-transcript-download-btn")
-      .addEventListener("click", () => {
+        break;
+      }
+        
+      case 'download': {
+        if (!lastTranscript) {
+          await fetchTranscript(includeTimestamps);
+        }
         const videoTitle = document.title
           .replace(" - YouTube", "")
-          .replace(/[<>:"/\\|?*]+/g, "_"); // Sanitize filename
+          .replace(/[<>:"/\\|?*]+/g, "_");
         downloadAsFile(lastTranscript, `${videoTitle}_transcript.txt`);
-      });
+        break;
+      }
+    }
+  });
 
-    extensionPanel
-      .querySelector("#yt-transcript-fetcher-close")
-      .addEventListener("click", () => {
-        extensionPanel.style.display = "none"; // Hide instead of remove to keep state
-      });
-  }
-
-  function addPanelStyles() {
-    const styleId = "yt-transcript-fetcher-styles";
-    if (document.getElementById(styleId)) return;
-
-    const style = document.createElement("style");
-    style.id = styleId;
-    style.textContent = `
-            #yt-transcript-fetcher-panel {
-                position: fixed;
-                top: 100px;
-                right: 20px;
-                width: 350px;
-                max-height: 80vh;
-                background-color: #282828; /* YouTube Dark Theme like */
-                color: #fff;
-                border: 1px solid #444;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                z-index: 99999; /* High z-index */
-                font-family: "YouTube Noto", Roboto, Arial, Helvetica, sans-serif;
-                font-size: 14px;
-                display: flex;
-                flex-direction: column;
-            }
-            .yt-transcript-fetcher-header {
-                padding: 10px 15px;
-                background-color: #333;
-                border-bottom: 1px solid #444;
-                cursor: move;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                border-top-left-radius: 8px;
-                border-top-right-radius: 8px;
-            }
-            .yt-transcript-fetcher-header h3 {
-                margin: 0;
-                font-size: 16px;
-                font-weight: 500;
-            }
-            #yt-transcript-fetcher-close {
-                background: none;
-                border: none;
-                color: #aaa;
-                font-size: 24px;
-                cursor: pointer;
-                padding: 0 5px;
-            }
-            #yt-transcript-fetcher-close:hover {
-                color: #fff;
-            }
-            .yt-transcript-fetcher-controls, .yt-transcript-fetcher-actions {
-                padding: 10px 15px;
-                display: flex;
-                gap: 10px;
-                align-items: center;
-            }
-            .yt-transcript-fetcher-controls button, .yt-transcript-fetcher-actions button {
-                padding: 8px 12px;
-                background-color: #3ea6ff; /* YouTube blue */
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 13px;
-            }
-            .yt-transcript-fetcher-controls button:hover, .yt-transcript-fetcher-actions button:hover {
-                background-color: #65b8ff;
-            }
-            .yt-transcript-fetcher-actions button:disabled {
-                background-color: #555;
-                cursor: not-allowed;
-            }
-            .yt-transcript-fetcher-controls label {
-                display: flex;
-                align-items: center;
-                gap: 5px;
-                cursor: pointer;
-            }
-            #yt-transcript-output {
-                flex-grow: 1;
-                width: calc(100% - 30px); /* 15px padding on each side */
-                margin: 0 15px 10px 15px;
-                min-height: 150px;
-                max-height: 40vh; /* Control max height before scrolling */
-                background-color: #1e1e1e;
-                color: #ddd;
-                border: 1px solid #444;
-                border-radius: 4px;
-                padding: 8px;
-                font-family: Consolas, Monaco, monospace;
-                font-size: 12px;
-                resize: vertical;
-            }
-            .yt-transcript-fetcher-status {
-                padding: 8px 15px;
-                margin: 5px 15px;
-                border-radius: 4px;
-                font-size: 13px;
-                text-align: center;
-            }
-            .yt-transcript-fetcher-success { background-color: #2f7c31; color: white; }
-            .yt-transcript-fetcher-error { background-color: #c62828; color: white; }
-            .yt-transcript-fetcher-info { background-color: #1976d2; color: white; }
-        `;
-    document.head.appendChild(style);
-  }
-
-  function makeDraggable(dragHandle, draggableElement) {
-    let offsetX;
-    let offsetY;
-    let isDragging = false;
-
-    dragHandle.addEventListener("mousedown", (e) => {
-      // Prevent dragging if clicking on a button inside the header (like close button)
-      if (e.target.tagName === "BUTTON") return;
-      isDragging = true;
-      offsetX = e.clientX - draggableElement.offsetLeft;
-      offsetY = e.clientY - draggableElement.offsetTop;
-      draggableElement.style.userSelect = "none"; // Prevent text selection while dragging
-    });
-
-    document.addEventListener("mousemove", (e) => {
-      if (!isDragging) return;
-      // Constrain movement within viewport
-      const newLeft = e.clientX - offsetX;
-      const newTop = e.clientY - offsetY;
-
-      const maxLeft = window.innerWidth - draggableElement.offsetWidth;
-      const maxTop = window.innerHeight - draggableElement.offsetHeight;
-
-      draggableElement.style.left = `${Math.max(0, Math.min(newLeft, maxLeft))}px`;
-      draggableElement.style.top = `${Math.max(0, Math.min(newTop, maxTop))}px`;
-    });
-
-    document.addEventListener("mouseup", () => {
-      if (isDragging) {
-        isDragging = false;
-        draggableElement.style.userSelect = "";
+  // Handle timestamp checkbox changes
+  const timestampCheckbox = transcriptDropdown.querySelector('#yt-transcript-timestamps-checkbox');
+  if (timestampCheckbox) {
+    timestampCheckbox.addEventListener('change', async (e) => {
+      e.stopPropagation();
+      includeTimestamps = timestampCheckbox.checked;
+      // Re-fetch transcript with new timestamp setting if we already have one
+      if (lastTranscript) {
+        await fetchTranscript(includeTimestamps);
       }
     });
   }
+}
 
-  // --- Initialization ---
+// Add styles for the button and dropdown
+function addButtonStyles() {
+  const existingStyles = document.getElementById("yt-transcript-styles");
+  if (existingStyles) return;
 
-  function init() {
-    // Only run on YouTube video pages
-    if (!window.location.href.includes("youtube.com/watch")) {
-      console.log("YT Transcript Fetcher: Not a YouTube video page.");
-      return;
+  const style = document.createElement("style");
+  style.id = "yt-transcript-styles";
+  style.textContent = `
+    .yt-transcript-button-container {
+      position: relative;
+      display: inline-block;
+      margin-left: 8px;
     }
 
-    // Check if panel already injected to avoid duplicates during development hot-reloading
-    if (document.getElementById("yt-transcript-fetcher-panel")) {
-      extensionPanel = document.getElementById("yt-transcript-fetcher-panel");
-      extensionPanel.style.display = "flex"; // Ensure it's visible
-      return;
+    .yt-transcript-button {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      background: transparent;
+      border: 1px solid var(--yt-spec-outline);
+      border-radius: 18px;
+      color: var(--yt-spec-text-primary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
     }
 
-    console.log("YT Transcript Fetcher: Initializing on video page.");
-    createExtensionPanel();
+    .yt-transcript-button:hover {
+      background: var(--yt-spec-badge-chip-background);
+      border-color: var(--yt-spec-outline-hover);
+    }
 
-    // As an alternative to the panel, you could inject a button into YT's own UI:
-    // e.g., near the like/dislike buttons. This is more complex due to YT's dynamic UI.
-    // For now, the floating panel is simpler and more robust.
-  }
+    .yt-transcript-icon {
+      flex-shrink: 0;
+    }
 
-  // Listen for messages from popup or background script (if you add one)
-  // This allows triggering the panel from the extension icon
-  if (chrome?.runtime?.onMessage) {
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-      if (request.action === "toggleTranscriptPanel") {
-        if (extensionPanel && extensionPanel.style.display !== "none") {
-          extensionPanel.style.display = "none";
-          sendResponse({ status: "Panel hidden" });
-        } else if (extensionPanel) {
-          extensionPanel.style.display = "flex";
-          sendResponse({ status: "Panel shown" });
-        } else {
-          init(); // Initialize if not already there
-          sendResponse({ status: "Panel initialized and shown" });
-        }
-        return true; // Indicates you wish to send a response asynchronously
+    .yt-transcript-dropdown-arrow {
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+
+    .yt-transcript-button-container.show .yt-transcript-dropdown-arrow {
+      transform: rotate(180deg);
+    }
+
+    .yt-transcript-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      min-width: 160px;
+      background: var(--yt-spec-raised-background);
+      border: 1px solid var(--yt-spec-outline);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-8px);
+      transition: all 0.2s ease;
+      margin-top: 4px;
+    }
+
+    .yt-transcript-dropdown.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .yt-transcript-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      color: var(--yt-spec-text-primary);
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .yt-transcript-dropdown-item:hover {
+      background: var(--yt-spec-touch-response);
+    }
+
+    .yt-transcript-dropdown-item:first-child {
+      border-radius: 8px 8px 0 0;
+    }
+
+    .yt-transcript-dropdown-item:last-child {
+      border-radius: 0 0 8px 8px;
+    }
+
+    .yt-transcript-dropdown-item svg {
+      flex-shrink: 0;
+    }
+    
+    .yt-transcript-dropdown-item.timestamp-option {
+      gap: 8px;
+      align-items: center;
+    }
+    
+    .yt-transcript-dropdown-item.timestamp-option input[type="checkbox"] {
+      margin: 0;
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    
+    .yt-transcript-dropdown-item.timestamp-option label {
+      cursor: pointer;
+      flex-grow: 1;
+      user-select: none;
+    }
+
+    .yt-transcript-notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      color: white;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 10000;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      animation: slideIn 0.3s ease;
+    }
+
+    .yt-transcript-notification.info {
+      background: var(--yt-spec-brand-button-text);
+    }
+
+    .yt-transcript-notification.success {
+      background: #00a550;
+    }
+
+    .yt-transcript-notification.error {
+      background: #ff0000;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
       }
-    });
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    /* Dark theme support */
+    html[dark] .yt-transcript-button {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    html[dark] .yt-transcript-button:hover {
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+  `;
+
+  document.head.appendChild(style);
+}
+
+// Initialize the extension
+function init() {
+  // Only run on YouTube video pages
+  if (!window.location.href.includes("youtube.com/watch")) {
+    console.log("YT Transcript Fetcher: Not a YouTube video page.");
+    return;
   }
 
-  // Initial check in case script is injected after page load.
-  // Use a small delay to ensure page elements are more likely to be ready.
-  if (
-    document.readyState === "complete" ||
-    document.readyState === "interactive"
-  ) {
-    setTimeout(init, 1000); // Give YT a second to settle
-  } else {
-    window.addEventListener("load", () => setTimeout(init, 1000));
+  // Check if button already exists to avoid duplicates
+  if (document.getElementById("yt-transcript-button")) {
+    return;
   }
-})();
+
+  console.log("YT Transcript Fetcher: Initializing on video page.");
+
+  // Create transcript button with a delay to ensure YouTube UI is loaded
+  setTimeout(() => {
+    createTranscriptButton();
+  }, 1000);
+}
+
+// Handle messages from background script
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "toggleTranscriptPanel") {
+    // For compatibility, we'll just show/hide the dropdown
+    if (transcriptDropdown) {
+      transcriptDropdown.classList.toggle("show");
+    }
+    sendResponse({ status: "Dropdown toggled" });
+  }
+});
+
+// Initialize when page loads
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
+
+// Re-initialize on navigation (YouTube SPA behavior)
+let currentUrl = window.location.href;
+const observer = new MutationObserver(() => {
+  if (window.location.href !== currentUrl) {
+    currentUrl = window.location.href;
+    // Reset state
+    transcriptButton = null;
+    transcriptDropdown = null;
+    lastTranscript = "";
+    // Re-initialize
+    setTimeout(init, 1000);
+  }
+});
+
+observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+});
