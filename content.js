@@ -399,23 +399,11 @@ function addButtonEventListeners() {
 
     switch (action) {
       case "copy": {
-        // const icon = item.querySelector(".yt-transcript-item-icon");
-        const spinner = item.querySelector(".yt-transcript-spinner");
-        const span = item.querySelector("span");
-
         if (!lastTranscript) {
-          // Show loading state
-          // icon.style.display = "none";
-          spinner.style.display = "block";
-          span.textContent = "Fetching...";
           item.style.pointerEvents = "none";
 
           await fetchTranscript(includeTimestamps);
 
-          // Hide loading state
-          // icon.style.display = "block";
-          spinner.style.display = "none";
-          span.textContent = "Copy";
           item.style.pointerEvents = "auto";
         }
 
@@ -427,22 +415,12 @@ function addButtonEventListeners() {
 
       case "download": {
         // const icon = item.querySelector(".yt-transcript-item-icon");
-        const spinner = item.querySelector(".yt-transcript-spinner");
-        const span = item.querySelector("span");
 
         if (!lastTranscript) {
-          // Show loading state
-          // icon.style.display = "none";
-          spinner.style.display = "block";
-          span.textContent = "Fetching...";
           item.style.pointerEvents = "none";
 
           await fetchTranscript(includeTimestamps);
 
-          // Hide loading state
-          // icon.style.display = "block";
-          spinner.style.display = "none";
-          span.textContent = "Download";
           item.style.pointerEvents = "auto";
         }
 
