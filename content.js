@@ -158,12 +158,6 @@ async function fetchTranscript() {
       }
     }
 
-    // Check current timestamp state and toggle if needed
-    const transcriptMenuButton = document.querySelector(
-      "yt-icon-button#menu-button",
-    );
-
-    if (transcriptMenuButton) {
       // Check if timestamps are currently visible by looking for timestamp pattern in text
       const currentText = transcriptContainer.innerText || "";
       const hasVisibleTimestamps = /\d{1,2}:\d{2}/.test(
@@ -172,38 +166,18 @@ async function fetchTranscript() {
 
       // Only toggle if current state doesn't match desired state
       if (hasVisibleTimestamps) {
-        transcriptMenuButton.click();
-
-        // Wait for menu to appear
-        const menuItems = await waitForElement(
-          "#items.ytd-menu-popup-renderer",
+        const toggleTimeStampBtnSelector = "#items > ytd-menu-service-item-renderer > tp-yt-paper-item > yt-formatted-string"
+        const toggleTimeStampBtn = await waitForElement(
+          toggleTimeStampBtnSelector,
           2000,
         );
 
-        if (menuItems) {
-          const items = menuItems.querySelectorAll(
-            "ytd-menu-service-item-renderer tp-yt-paper-item",
-          );
-          let toggleClicked = false;
-
-          for (const item of items) {
-            const text = item.textContent.trim().toLowerCase();
-            if (text.includes("toggle timestamps")) {
-              item.click();
-              toggleClicked = true;
-              await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for toggle
-              break;
-            }
-          }
-
-          // Close menu if it's still open
-          if (!toggleClicked) {
-            // Click elsewhere to close menu
-            document.body.click();
-          }
+        if (toggleTimeStampBtn) {
+          toggleTimeStampBtn.click();
         }
+
       }
-    }
+    
 
     // Re-fetch container after potential timestamp toggle
     transcriptContainer = document.querySelector(transcriptContainerSelector);
@@ -383,52 +357,6 @@ function addButtonEventListeners() {
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".yt-transcript-button-container")) {
       transcriptDropdown.classList.remove("show");
-    }
-  });
-
-  // Handle dropdown item clicks
-  transcriptDropdown.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    const item = e.target.closest(".yt-transcript-dropdown-item");
-    if (!item) return;
-
-    const action = item.getAttribute("data-action");
-
-    switch (action) {
-      case "copy": {
-        if (!lastTranscript) {
-          item.style.pointerEvents = "none";
-
-          await fetchTranscript();
-
-          item.style.pointerEvents = "auto";
-        }
-
-        if (lastTranscript) {
-          copyToClipboard(lastTranscript);
-        }
-        break;
-      }
-
-      case "download": {
-        // const icon = item.querySelector(".yt-transcript-item-icon");
-
-        if (!lastTranscript) {
-          item.style.pointerEvents = "none";
-
-          await fetchTranscript();
-
-          item.style.pointerEvents = "auto";
-        }
-
-        if (lastTranscript) {
-          const videoTitle = document.title
-            .replace(" - YouTube", "")
-            .replace(/[<>:"/\\|?*]+/g, "_");
-          downloadAsFile(lastTranscript, `${videoTitle}_transcript.txt`);
-        }
-        break;
-      }
     }
   });
 }
