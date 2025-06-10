@@ -62,13 +62,12 @@ function showNotification(message, type = "info") {
 async function copyToClipboard(text) {
   if (!text) {
     showNotification("No transcript to copy", "error");
-    return;
+    throw new Error("No transcript to copy");
   }
 
   try {
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text);
-      showNotification("Transcript copied to clipboard!", "success");
     } else {
       // Fallback for older browsers or non-secure contexts
       const textArea = document.createElement("textarea");
@@ -83,15 +82,14 @@ async function copyToClipboard(text) {
       const successful = document.execCommand("copy");
       textArea.remove();
 
-      if (successful) {
-        showNotification("Transcript copied to clipboard!", "success");
-      } else {
+      if (!successful) {
         throw new Error("Copy command failed");
       }
     }
   } catch (err) {
     console.error("Failed to copy text: ", err);
     showNotification("Failed to copy transcript", "error");
+    throw err;
   }
 }
 
@@ -99,25 +97,29 @@ async function copyToClipboard(text) {
 function downloadAsFile(text, filename) {
   if (!text) {
     showNotification("No transcript to download", "error");
-    return;
+    throw new Error("No transcript to download");
   }
 
-  const blob = new Blob([text], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showNotification("Transcript downloaded!", "success");
+  try {
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Failed to download file: ", err);
+    showNotification("Failed to download transcript", "error");
+    throw err;
+  }
 }
 
 // Fetch transcript from YouTube's native transcript panel
 async function fetchTranscript(withTimestamps = true) {
   try {
-    showNotification("Fetching transcript...", "info");
     lastTranscript = "";
 
     // Check if transcript panel is already open
@@ -129,8 +131,6 @@ async function fetchTranscript(withTimestamps = true) {
 
     // If transcript panel is not open, try to open it
     if (!transcriptContainer || !transcriptContainer.offsetParent) {
-      showNotification("Opening transcript panel...", "info");
-
       // Look for the "Show transcript" button
       const showTranscriptButtonSelector =
         '#primary-button > ytd-button-renderer > yt-button-shape > button[aria-label="Show transcript"]';
@@ -210,7 +210,6 @@ async function fetchTranscript(withTimestamps = true) {
     // Clean up transcript text
     lastTranscript = rawTranscript.replace(/\n\s*\n/g, "\n").trim();
 
-    showNotification("Transcript fetched successfully!", "success");
     return lastTranscript;
   } catch (error) {
     console.error("Error fetching transcript:", error);
@@ -240,6 +239,17 @@ function createTranscriptButton() {
           <path d="M12 14L8 18L10.5 20.5L12 19L15.5 22.5L17 21L12 14Z" fill="currentColor"/>
         </svg>
         <span>Transcript</span>
+        <div class="yt-transcript-status-container">
+          <svg class="yt-transcript-status-spinner" style="display: none;" viewBox="0 0 24 24" width="16" height="16">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="60" stroke-dashoffset="60" class="yt-transcript-spinner-circle"/>
+          </svg>
+          <svg class="yt-transcript-status-success" style="display: none;" viewBox="0 0 24 24" width="16" height="16">
+            <path d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z" fill="currentColor"/>
+          </svg>
+          <svg class="yt-transcript-status-error" style="display: none;" viewBox="0 0 24 24" width="16" height="16">
+            <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" fill="currentColor"/>
+          </svg>
+        </div>
         <svg class="yt-transcript-dropdown-arrow" viewBox="0 0 24 24" width="12" height="12">
           <path d="M7 10L12 15L17 10H7Z" fill="currentColor"/>
         </svg>
@@ -267,6 +277,83 @@ function createTranscriptButton() {
           <label for="yt-transcript-timestamps-checkbox">Include Timestamps</label>
         </div>
       `;
+
+      // Handle dropdown item clicks
+      transcriptDropdown.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const item = e.target.closest(".yt-transcript-dropdown-item");
+        if (!item) return;
+
+        const action = item.getAttribute("data-action");
+
+        // Don't close dropdown for timestamp checkbox or during operations
+        if (item.classList.contains("timestamp-option")) {
+          return;
+        }
+
+        // Get status elements from main button
+        const spinner = transcriptButton.querySelector(
+          ".yt-transcript-status-spinner",
+        );
+        const successIcon = transcriptButton.querySelector(
+          ".yt-transcript-status-success",
+        );
+        const errorIcon = transcriptButton.querySelector(
+          ".yt-transcript-status-error",
+        );
+
+        const showStatus = (type) => {
+          spinner.style.display = type === "loading" ? "block" : "none";
+          successIcon.style.display = type === "success" ? "block" : "none";
+          errorIcon.style.display = type === "error" ? "block" : "none";
+
+          if (type !== "loading") {
+            setTimeout(() => {
+              spinner.style.display = "none";
+              successIcon.style.display = "none";
+              errorIcon.style.display = "none";
+              transcriptDropdown.classList.remove("show");
+            }, 2000);
+          }
+        };
+
+        try {
+          switch (action) {
+            case "copy": {
+              showStatus("loading");
+
+              if (!lastTranscript) {
+                await fetchTranscript(includeTimestamps);
+              }
+
+              if (lastTranscript) {
+                await copyToClipboard(lastTranscript);
+                showStatus("success");
+              }
+              break;
+            }
+
+            case "download": {
+              showStatus("loading");
+
+              if (!lastTranscript) {
+                await fetchTranscript(includeTimestamps);
+              }
+
+              if (lastTranscript) {
+                const videoTitle = document.title
+                  .replace(" - YouTube", "")
+                  .replace(/[<>:"/\\|?*]+/g, "_");
+                downloadAsFile(lastTranscript, `${videoTitle}_transcript.txt`);
+                showStatus("success");
+              }
+              break;
+            }
+          }
+        } catch (error) {
+          showStatus("error");
+        }
+      });
 
       buttonContainer.appendChild(transcriptButton);
       buttonContainer.appendChild(transcriptDropdown);
@@ -298,44 +385,84 @@ function addButtonEventListeners() {
   });
 
   // Handle dropdown item clicks
-  transcriptDropdown.addEventListener('click', async (e) => {
+  transcriptDropdown.addEventListener("click", async (e) => {
     e.stopPropagation();
-    const item = e.target.closest('.yt-transcript-dropdown-item');
+    const item = e.target.closest(".yt-transcript-dropdown-item");
     if (!item) return;
 
     // Don't close dropdown for timestamp checkbox
-    if (!item.classList.contains('timestamp-option')) {
-      transcriptDropdown.classList.remove('show');
+    if (!item.classList.contains("timestamp-option")) {
+      transcriptDropdown.classList.remove("show");
     }
 
-    const action = item.getAttribute('data-action');
-    
+    const action = item.getAttribute("data-action");
+
     switch (action) {
-      case 'copy': {
+      case "copy": {
+        // const icon = item.querySelector(".yt-transcript-item-icon");
+        const spinner = item.querySelector(".yt-transcript-spinner");
+        const span = item.querySelector("span");
+
         if (!lastTranscript) {
+          // Show loading state
+          // icon.style.display = "none";
+          spinner.style.display = "block";
+          span.textContent = "Fetching...";
+          item.style.pointerEvents = "none";
+
           await fetchTranscript(includeTimestamps);
+
+          // Hide loading state
+          // icon.style.display = "block";
+          spinner.style.display = "none";
+          span.textContent = "Copy";
+          item.style.pointerEvents = "auto";
         }
-        copyToClipboard(lastTranscript);
+
+        if (lastTranscript) {
+          copyToClipboard(lastTranscript);
+        }
         break;
       }
-        
-      case 'download': {
+
+      case "download": {
+        // const icon = item.querySelector(".yt-transcript-item-icon");
+        const spinner = item.querySelector(".yt-transcript-spinner");
+        const span = item.querySelector("span");
+
         if (!lastTranscript) {
+          // Show loading state
+          // icon.style.display = "none";
+          spinner.style.display = "block";
+          span.textContent = "Fetching...";
+          item.style.pointerEvents = "none";
+
           await fetchTranscript(includeTimestamps);
+
+          // Hide loading state
+          // icon.style.display = "block";
+          spinner.style.display = "none";
+          span.textContent = "Download";
+          item.style.pointerEvents = "auto";
         }
-        const videoTitle = document.title
-          .replace(" - YouTube", "")
-          .replace(/[<>:"/\\|?*]+/g, "_");
-        downloadAsFile(lastTranscript, `${videoTitle}_transcript.txt`);
+
+        if (lastTranscript) {
+          const videoTitle = document.title
+            .replace(" - YouTube", "")
+            .replace(/[<>:"/\\|?*]+/g, "_");
+          downloadAsFile(lastTranscript, `${videoTitle}_transcript.txt`);
+        }
         break;
       }
     }
   });
 
   // Handle timestamp checkbox changes
-  const timestampCheckbox = transcriptDropdown.querySelector('#yt-transcript-timestamps-checkbox');
+  const timestampCheckbox = transcriptDropdown.querySelector(
+    "#yt-transcript-timestamps-checkbox",
+  );
   if (timestampCheckbox) {
-    timestampCheckbox.addEventListener('change', async (e) => {
+    timestampCheckbox.addEventListener("change", async (e) => {
       e.stopPropagation();
       includeTimestamps = timestampCheckbox.checked;
       // Re-fetch transcript with new timestamp setting if we already have one
@@ -429,7 +556,11 @@ function addButtonStyles() {
     }
 
     .yt-transcript-dropdown-item:hover {
-      background: var(--yt-spec-touch-response);
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    html[dark] .yt-transcript-dropdown-item:hover {
+      background: rgba(255, 255, 255, 0.08);
     }
 
     .yt-transcript-dropdown-item:first-child {
@@ -443,19 +574,50 @@ function addButtonStyles() {
     .yt-transcript-dropdown-item svg {
       flex-shrink: 0;
     }
-    
+
+    .yt-transcript-spinner {
+      flex-shrink: 0;
+    }
+
+    .yt-transcript-spinner-circle {
+      animation: yt-transcript-spin 1s linear infinite;
+    }
+
+    .yt-transcript-status-container {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .yt-transcript-status-success {
+      color: #00a550;
+    }
+
+    .yt-transcript-status-error {
+      color: #ff0000;
+    }
+
+    @keyframes yt-transcript-spin {
+      from {
+        stroke-dashoffset: 60;
+      }
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+
     .yt-transcript-dropdown-item.timestamp-option {
       gap: 8px;
       align-items: center;
     }
-    
+
     .yt-transcript-dropdown-item.timestamp-option input[type="checkbox"] {
       margin: 0;
       width: 16px;
       height: 16px;
       cursor: pointer;
     }
-    
+
     .yt-transcript-dropdown-item.timestamp-option label {
       cursor: pointer;
       flex-grow: 1;
