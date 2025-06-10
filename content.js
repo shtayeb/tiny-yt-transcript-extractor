@@ -2,7 +2,6 @@
 let transcriptButton = null;
 let transcriptDropdown = null;
 let lastTranscript = "";
-let includeTimestamps = true;
 
 // Utility function to wait for an element to appear
 function waitForElement(selector, timeout = 5000) {
@@ -118,7 +117,7 @@ function downloadAsFile(text, filename) {
 }
 
 // Fetch transcript from YouTube's native transcript panel
-async function fetchTranscript(withTimestamps = true) {
+async function fetchTranscript() {
   try {
     lastTranscript = "";
 
@@ -160,15 +159,19 @@ async function fetchTranscript(withTimestamps = true) {
     }
 
     // Check current timestamp state and toggle if needed
-    const transcriptMenuButton = document.querySelector("yt-icon-button#menu-button");
-    
+    const transcriptMenuButton = document.querySelector(
+      "yt-icon-button#menu-button",
+    );
+
     if (transcriptMenuButton) {
       // Check if timestamps are currently visible by looking for timestamp pattern in text
-      const currentText = transcriptContainer.innerText || '';
-      const hasVisibleTimestamps = /\d{1,2}:\d{2}/.test(currentText.substring(0, 100));
-      
+      const currentText = transcriptContainer.innerText || "";
+      const hasVisibleTimestamps = /\d{1,2}:\d{2}/.test(
+        currentText.substring(0, 100),
+      );
+
       // Only toggle if current state doesn't match desired state
-      if (hasVisibleTimestamps !== withTimestamps) {
+      if (hasVisibleTimestamps) {
         transcriptMenuButton.click();
 
         // Wait for menu to appear
@@ -182,21 +185,17 @@ async function fetchTranscript(withTimestamps = true) {
             "ytd-menu-service-item-renderer tp-yt-paper-item",
           );
           let toggleClicked = false;
-          
+
           for (const item of items) {
             const text = item.textContent.trim().toLowerCase();
-            if (
-              text.includes("toggle timestamps") ||
-              text.includes("show timestamps") ||
-              text.includes("hide timestamps")
-            ) {
+            if (text.includes("toggle timestamps")) {
               item.click();
               toggleClicked = true;
               await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for toggle
               break;
             }
           }
-          
+
           // Close menu if it's still open
           if (!toggleClicked) {
             // Click elsewhere to close menu
@@ -284,10 +283,6 @@ function createTranscriptButton() {
           </svg>
           Download
         </div>
-        <div class="yt-transcript-dropdown-item timestamp-option">
-          <input type="checkbox" id="yt-transcript-timestamps-checkbox" checked>
-          <label for="yt-transcript-timestamps-checkbox">Include Timestamps</label>
-        </div>
       `;
 
       // Handle dropdown item clicks
@@ -297,11 +292,6 @@ function createTranscriptButton() {
         if (!item) return;
 
         const action = item.getAttribute("data-action");
-
-        // Don't close dropdown for timestamp checkbox or during operations
-        if (item.classList.contains("timestamp-option")) {
-          return;
-        }
 
         // Get status elements from main button
         const spinner = transcriptButton.querySelector(
@@ -333,12 +323,9 @@ function createTranscriptButton() {
           switch (action) {
             case "copy": {
               showStatus("loading");
-              
-              const timestampCheckbox = transcriptDropdown.querySelector("#yt-transcript-timestamps-checkbox");
-              const currentTimestampSetting = timestampCheckbox ? timestampCheckbox.checked : includeTimestamps;
 
               if (!lastTranscript) {
-                await fetchTranscript(currentTimestampSetting);
+                await fetchTranscript();
               }
 
               if (lastTranscript) {
@@ -350,12 +337,9 @@ function createTranscriptButton() {
 
             case "download": {
               showStatus("loading");
-              
-              const timestampCheckbox = transcriptDropdown.querySelector("#yt-transcript-timestamps-checkbox");
-              const currentTimestampSetting = timestampCheckbox ? timestampCheckbox.checked : includeTimestamps;
 
               if (!lastTranscript) {
-                await fetchTranscript(currentTimestampSetting);
+                await fetchTranscript();
               }
 
               if (lastTranscript) {
@@ -408,22 +392,14 @@ function addButtonEventListeners() {
     const item = e.target.closest(".yt-transcript-dropdown-item");
     if (!item) return;
 
-    // Don't close dropdown for timestamp checkbox
-    if (!item.classList.contains("timestamp-option")) {
-      transcriptDropdown.classList.remove("show");
-    }
-
     const action = item.getAttribute("data-action");
 
     switch (action) {
       case "copy": {
         if (!lastTranscript) {
           item.style.pointerEvents = "none";
-          
-          const timestampCheckbox = transcriptDropdown.querySelector("#yt-transcript-timestamps-checkbox");
-          const currentTimestampSetting = timestampCheckbox ? timestampCheckbox.checked : includeTimestamps;
 
-          await fetchTranscript(currentTimestampSetting);
+          await fetchTranscript();
 
           item.style.pointerEvents = "auto";
         }
@@ -439,11 +415,8 @@ function addButtonEventListeners() {
 
         if (!lastTranscript) {
           item.style.pointerEvents = "none";
-          
-          const timestampCheckbox = transcriptDropdown.querySelector("#yt-transcript-timestamps-checkbox");
-          const currentTimestampSetting = timestampCheckbox ? timestampCheckbox.checked : includeTimestamps;
 
-          await fetchTranscript(currentTimestampSetting);
+          await fetchTranscript();
 
           item.style.pointerEvents = "auto";
         }
@@ -458,19 +431,6 @@ function addButtonEventListeners() {
       }
     }
   });
-
-  // Handle timestamp checkbox changes
-  const timestampCheckbox = transcriptDropdown.querySelector(
-    "#yt-transcript-timestamps-checkbox",
-  );
-  if (timestampCheckbox) {
-    timestampCheckbox.addEventListener("change", async (e) => {
-      e.stopPropagation();
-      includeTimestamps = timestampCheckbox.checked;
-      // Clear cached transcript so it gets re-fetched with new timestamp setting
-      lastTranscript = "";
-    });
-  }
 }
 
 // Add styles for the button and dropdown
