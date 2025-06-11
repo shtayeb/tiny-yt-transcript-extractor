@@ -158,33 +158,6 @@ async function fetchTranscript() {
       }
     }
 
-      // Check if timestamps are currently visible by looking for timestamp pattern in text
-      const currentText = transcriptContainer.innerText || "";
-      const hasVisibleTimestamps = /\d{1,2}:\d{2}/.test(
-        currentText.substring(0, 100),
-      );
-
-      // Only toggle if current state doesn't match desired state
-      if (hasVisibleTimestamps) {
-        const toggleTimeStampBtnSelector = "#items > ytd-menu-service-item-renderer > tp-yt-paper-item > yt-formatted-string"
-        const toggleTimeStampBtn = await waitForElement(
-          toggleTimeStampBtnSelector,
-          2000,
-        );
-
-        if (toggleTimeStampBtn) {
-          toggleTimeStampBtn.click();
-        }
-
-      }
-    
-
-    // Re-fetch container after potential timestamp toggle
-    transcriptContainer = document.querySelector(transcriptContainerSelector);
-    if (!transcriptContainer) {
-      throw new Error("Transcript container not found after operations.");
-    }
-
     // Extract transcript text
     const rawTranscript = transcriptContainer.innerText;
 
@@ -192,8 +165,13 @@ async function fetchTranscript() {
       throw new Error("Transcript is empty or not available.");
     }
 
-    // Clean up transcript text
-    lastTranscript = rawTranscript.replace(/\n\s*\n/g, "\n").trim();
+    // Clean up transcript text and remove timestamps
+    lastTranscript = rawTranscript
+      // .replace(/\n\s*\n/g, "\n")
+      .replace(/^\d{1,2}:\d{2}\n?/gm, "")
+      .trim();
+
+    console.log(lastTranscript);
 
     return lastTranscript;
   } catch (error) {
