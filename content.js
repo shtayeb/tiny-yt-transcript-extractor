@@ -1,6 +1,5 @@
 // content.js
 let transcriptButton = null;
-let transcriptDropdown = null;
 let lastTranscript = "";
 
 // Utility function to wait for an element to appear
@@ -185,23 +184,27 @@ async function fetchTranscript() {
 function createTranscriptButton() {
   if (transcriptButton) return; // Already exists
 
-  // Wait for the target container to be available
-  waitForElement("#menu > ytd-menu-renderer.ytd-watch-metadata")
-    .then((container) => {
-      // Create button container
-      const buttonContainer = document.createElement("div");
-      buttonContainer.className = "yt-transcript-button-container";
+  // target container to be available
+  const container = document.querySelector("#menu > ytd-menu-renderer.ytd-watch-metadata")
 
-      // Create the main transcript button
-      transcriptButton = document.createElement("button");
-      transcriptButton.id = "yt-transcript-button";
-      transcriptButton.className = "yt-transcript-button";
-      transcriptButton.innerHTML = `
-        <svg class="yt-transcript-icon" viewBox="0 0 24 24" width="16" height="16">
-          <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" fill="currentColor"/>
-          <path d="M12 14L8 18L10.5 20.5L12 19L15.5 22.5L17 21L12 14Z" fill="currentColor"/>
-        </svg>
-        <span>Transcript</span>
+  // Create button container
+  const buttonContainer = document.createElement("div");
+  buttonContainer.className = "yt-transcript-button-container";
+
+  // Create the main transcript button
+  buttonContainer.innerHTML = ` 
+      <p> Transcript </p>
+        <button class="yt-transcript-dropdown-item yt-transcript-button" data-action="download">
+          <svg class="yt-transcript-icon" fill="none" viewBox="0 0 24 24" swidth="16" height="16"  stroke="currentColor" class="size-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m-6 3.75 3 3m0 0 3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75" />
+          </svg>
+        </button>
+         <button class="yt-transcript-dropdown-item yt-transcript-button" data-action="copy">
+          <svg class="yt-transcript-icon" viewBox="0 0 24 24" width="16" height="16">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" fill="currentColor"/>
+            <path d="M12 14L8 18L10.5 20.5L12 19L15.5 22.5L17 21L12 14Z" fill="currentColor"/>
+          </svg>
+         </button>
         <div class="yt-transcript-status-container">
           <svg class="yt-transcript-status-spinner" style="display: none;" viewBox="0 0 24 24" width="16" height="16">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="60" stroke-dashoffset="60" class="yt-transcript-spinner-circle"/>
@@ -213,130 +216,83 @@ function createTranscriptButton() {
             <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" fill="currentColor"/>
           </svg>
         </div>
-        <svg class="yt-transcript-dropdown-arrow" viewBox="0 0 24 24" width="12" height="12">
-          <path d="M7 10L12 15L17 10H7Z" fill="currentColor"/>
-        </svg>
       `;
 
-      // Create dropdown menu
-      transcriptDropdown = document.createElement("div");
-      transcriptDropdown.id = "yt-transcript-dropdown";
-      transcriptDropdown.className = "yt-transcript-dropdown";
-      transcriptDropdown.innerHTML = `
-        <div class="yt-transcript-dropdown-item" data-action="copy">
-          <svg viewBox="0 0 24 24" width="16" height="16">
-            <path d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z" fill="currentColor"/>
-          </svg>
-          Copy
-        </div>
-        <div class="yt-transcript-dropdown-item" data-action="download">
-          <svg viewBox="0 0 24 24" width="16" height="16">
-            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" fill="currentColor"/>
-          </svg>
-          Download
-        </div>
-      `;
-
-      // Handle dropdown item clicks
-      transcriptDropdown.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const item = e.target.closest(".yt-transcript-dropdown-item");
-        if (!item) return;
-
-        const action = item.getAttribute("data-action");
-
-        // Get status elements from main button
-        const spinner = transcriptButton.querySelector(
-          ".yt-transcript-status-spinner",
-        );
-        const successIcon = transcriptButton.querySelector(
-          ".yt-transcript-status-success",
-        );
-        const errorIcon = transcriptButton.querySelector(
-          ".yt-transcript-status-error",
-        );
-
-        const showStatus = (type) => {
-          spinner.style.display = type === "loading" ? "block" : "none";
-          successIcon.style.display = type === "success" ? "block" : "none";
-          errorIcon.style.display = type === "error" ? "block" : "none";
-
-          if (type !== "loading") {
-            setTimeout(() => {
-              spinner.style.display = "none";
-              successIcon.style.display = "none";
-              errorIcon.style.display = "none";
-              transcriptDropdown.classList.remove("show");
-            }, 2000);
-          }
-        };
-
-        try {
-          switch (action) {
-            case "copy": {
-              showStatus("loading");
-
-              if (!lastTranscript) {
-                await fetchTranscript();
-              }
-
-              if (lastTranscript) {
-                await copyToClipboard(lastTranscript);
-                showStatus("success");
-              }
-              break;
-            }
-
-            case "download": {
-              showStatus("loading");
-
-              if (!lastTranscript) {
-                await fetchTranscript();
-              }
-
-              if (lastTranscript) {
-                const videoTitle = document.title
-                  .replace(" - YouTube", "")
-                  .replace(/[<>:"/\\|?*]+/g, "_");
-                downloadAsFile(lastTranscript, `${videoTitle}_transcript.txt`);
-                showStatus("success");
-              }
-              break;
-            }
-          }
-        } catch (error) {
-          showStatus("error");
-        }
-      });
-
-      buttonContainer.appendChild(transcriptButton);
-      buttonContainer.appendChild(transcriptDropdown);
-      container.appendChild(buttonContainer);
-
-      addButtonStyles();
-      addButtonEventListeners();
-    })
-    .catch((error) => {
-      console.error("Failed to inject transcript button:", error);
-    });
-}
-
-// Add event listeners to the button and dropdown
-function addButtonEventListeners() {
-  if (!transcriptButton || !transcriptDropdown) return;
-
-  // Toggle dropdown on button click
-  transcriptButton.addEventListener("click", (e) => {
+  // Handle dropdown item clicks
+  buttonContainer.addEventListener("click", async (e) => {
     e.stopPropagation();
-    transcriptDropdown.classList.toggle("show");
-  });
+    const item = e.target.closest(".yt-transcript-dropdown-item");
+    if (!item) return;
 
-  // Close dropdown when clicking outside
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".yt-transcript-button-container")) {
-      transcriptDropdown.classList.remove("show");
+    const action = item.getAttribute("data-action");
+
+    // Get status elements from main button
+    const spinner = buttonContainer.querySelector(
+      ".yt-transcript-status-spinner",
+    );
+    const successIcon = buttonContainer.querySelector(
+      ".yt-transcript-status-success",
+    );
+    const errorIcon = buttonContainer.querySelector(
+      ".yt-transcript-status-error",
+    );
+
+    const showStatus = (type) => {
+      spinner.style.display = type === "loading" ? "block" : "none";
+      successIcon.style.display = type === "success" ? "block" : "none";
+      errorIcon.style.display = type === "error" ? "block" : "none";
+
+      if (type !== "loading") {
+        setTimeout(() => {
+          spinner.style.display = "none";
+          successIcon.style.display = "none";
+          errorIcon.style.display = "none";
+        }, 2000);
+      }
+    };
+
+    try {
+      switch (action) {
+        case "copy": {
+          showStatus("loading");
+
+          if (!lastTranscript) {
+            await fetchTranscript();
+          }
+
+          if (lastTranscript) {
+            await copyToClipboard(lastTranscript);
+            showStatus("success");
+          }
+          break;
+        }
+
+        case "download": {
+          showStatus("loading");
+
+          if (!lastTranscript) {
+            await fetchTranscript();
+          }
+
+          if (lastTranscript) {
+            const videoTitle = document.title
+              .replace(" - YouTube", "")
+              .replace(/[<>:"/\\|?*]+/g, "_");
+            downloadAsFile(lastTranscript, `${videoTitle}_transcript.txt`);
+            showStatus("success");
+          }
+          break;
+        }
+      }
+    } catch (error) {
+      showStatus("error");
     }
   });
+
+  container.appendChild(buttonContainer);
+
+  addButtonStyles();
+
 }
 
 // Add styles for the button and dropdown
@@ -348,16 +304,20 @@ function addButtonStyles() {
   style.id = "yt-transcript-styles";
   style.textContent = `
     .yt-transcript-button-container {
-      position: relative;
-      display: inline-block;
       margin-left: 8px;
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--yt-spec-outline);
+      border-radius: 18px;
+      gap:6px;
+      padding: 4px 10px;
     }
 
     .yt-transcript-button {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 8px 12px;
+      padding: 5px 12px;
       background: transparent;
       border: 1px solid var(--yt-spec-outline);
       border-radius: 18px;
@@ -378,67 +338,8 @@ function addButtonStyles() {
       flex-shrink: 0;
     }
 
-    .yt-transcript-dropdown-arrow {
-      flex-shrink: 0;
-      transition: transform 0.2s ease;
-    }
-
-    .yt-transcript-button-container.show .yt-transcript-dropdown-arrow {
+       .yt-transcript-button-container.show .yt-transcript-dropdown-arrow {
       transform: rotate(180deg);
-    }
-
-    .yt-transcript-dropdown {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      min-width: 160px;
-      background: var(--yt-spec-raised-background);
-      border: 1px solid var(--yt-spec-outline);
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      z-index: 1000;
-      opacity: 0;
-      visibility: hidden;
-      transform: translateY(-8px);
-      transition: all 0.2s ease;
-      margin-top: 4px;
-    }
-
-    .yt-transcript-dropdown.show {
-      opacity: 1;
-      visibility: visible;
-      transform: translateY(0);
-    }
-
-    .yt-transcript-dropdown-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 12px;
-      color: var(--yt-spec-text-primary);
-      font-size: 14px;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-    }
-
-    .yt-transcript-dropdown-item:hover {
-      background: rgba(0, 0, 0, 0.05);
-    }
-
-    html[dark] .yt-transcript-dropdown-item:hover {
-      background: rgba(255, 255, 255, 0.08);
-    }
-
-    .yt-transcript-dropdown-item:first-child {
-      border-radius: 8px 8px 0 0;
-    }
-
-    .yt-transcript-dropdown-item:last-child {
-      border-radius: 0 0 8px 8px;
-    }
-
-    .yt-transcript-dropdown-item svg {
-      flex-shrink: 0;
     }
 
     .yt-transcript-spinner {
@@ -470,24 +371,6 @@ function addButtonStyles() {
       to {
         stroke-dashoffset: 0;
       }
-    }
-
-    .yt-transcript-dropdown-item.timestamp-option {
-      gap: 8px;
-      align-items: center;
-    }
-
-    .yt-transcript-dropdown-item.timestamp-option input[type="checkbox"] {
-      margin: 0;
-      width: 16px;
-      height: 16px;
-      cursor: pointer;
-    }
-
-    .yt-transcript-dropdown-item.timestamp-option label {
-      cursor: pointer;
-      flex-grow: 1;
-      user-select: none;
     }
 
     .yt-transcript-notification {
@@ -542,12 +425,6 @@ function addButtonStyles() {
 
 // Initialize the extension
 function init() {
-  // Only run on YouTube video pages
-  if (!window.location.href.includes("youtube.com/watch")) {
-    console.log("YT Transcript Fetcher: Not a YouTube video page.");
-    return;
-  }
-
   // Check if button already exists to avoid duplicates
   if (document.getElementById("yt-transcript-button")) {
     return;
@@ -564,10 +441,6 @@ function init() {
 // Handle messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "toggleTranscriptPanel") {
-    // For compatibility, we'll just show/hide the dropdown
-    if (transcriptDropdown) {
-      transcriptDropdown.classList.toggle("show");
-    }
     sendResponse({ status: "Dropdown toggled" });
   }
 });
@@ -586,7 +459,6 @@ const observer = new MutationObserver(() => {
     currentUrl = window.location.href;
     // Reset state
     transcriptButton = null;
-    transcriptDropdown = null;
     lastTranscript = "";
     // Re-initialize
     setTimeout(init, 1000);
