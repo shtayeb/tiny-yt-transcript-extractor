@@ -1,209 +1,209 @@
 // content.js
-let transcriptButton = null;
+let transcriptButtonContainer = null;
 let lastTranscript = "";
 
 // Utility function to wait for an element to appear
 function waitForElement(selector, timeout = 5000) {
-	return new Promise((resolve, reject) => {
-		const element = document.querySelector(selector);
-		if (element) {
-			resolve(element);
-			return;
-		}
+  return new Promise((resolve, reject) => {
+    const element = document.querySelector(selector);
+    if (element) {
+      resolve(element);
+      return;
+    }
 
-		const observer = new MutationObserver((mutations, obs) => {
-			const element = document.querySelector(selector);
-			if (element) {
-				obs.disconnect();
-				resolve(element);
-			}
-		});
+    const observer = new MutationObserver((mutations, obs) => {
+      const element = document.querySelector(selector);
+      if (element) {
+        obs.disconnect();
+        resolve(element);
+      }
+    });
 
-		observer.observe(document.body, {
-			childList: true,
-			subtree: true,
-		});
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
 
-		setTimeout(() => {
-			observer.disconnect();
-			resolve(null); // Return null instead of rejecting
-		}, timeout);
-	});
+    setTimeout(() => {
+      observer.disconnect();
+      resolve(null); // Return null instead of rejecting
+    }, timeout);
+  });
 }
 
 // Show notification to user
 function showNotification(message, type = "info") {
-	// Remove existing notification if any
-	const existingNotification = document.getElementById(
-		"yt-transcript-notification",
-	);
-	if (existingNotification) {
-		existingNotification.remove();
-	}
+  // Remove existing notification if any
+  const existingNotification = document.getElementById(
+    "yt-transcript-notification"
+  );
+  if (existingNotification) {
+    existingNotification.remove();
+  }
 
-	const notification = document.createElement("div");
-	notification.id = "yt-transcript-notification";
-	notification.className = `yt-transcript-notification ${type}`;
-	notification.textContent = message;
+  const notification = document.createElement("div");
+  notification.id = "yt-transcript-notification";
+  notification.className = `yt-transcript-notification ${type}`;
+  notification.textContent = message;
 
-	document.body.appendChild(notification);
+  document.body.appendChild(notification);
 
-	// Auto remove after 3 seconds
-	setTimeout(() => {
-		if (notification?.parentNode) {
-			notification.remove();
-		}
-	}, 3000);
+  // Auto remove after 3 seconds
+  setTimeout(() => {
+    if (notification?.parentNode) {
+      notification.remove();
+    }
+  }, 3000);
 }
 
 // Copy text to clipboard
 async function copyToClipboard(text) {
-	if (!text) {
-		showNotification("No transcript to copy", "error");
-		throw new Error("No transcript to copy");
-	}
+  if (!text) {
+    showNotification("No transcript to copy", "error");
+    throw new Error("No transcript to copy");
+  }
 
-	try {
-		if (navigator.clipboard && window.isSecureContext) {
-			await navigator.clipboard.writeText(text);
-		} else {
-			// Fallback for older browsers or non-secure contexts
-			const textArea = document.createElement("textarea");
-			textArea.value = text;
-			textArea.style.position = "fixed";
-			textArea.style.left = "-999999px";
-			textArea.style.top = "-999999px";
-			document.body.appendChild(textArea);
-			textArea.focus();
-			textArea.select();
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      // Fallback for older browsers or non-secure contexts
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
 
-			const successful = document.execCommand("copy");
-			textArea.remove();
+      const successful = document.execCommand("copy");
+      textArea.remove();
 
-			if (!successful) {
-				throw new Error("Copy command failed");
-			}
-		}
-	} catch (err) {
-		console.error("Failed to copy text: ", err);
-		showNotification("Failed to copy transcript", "error");
-		throw err;
-	}
+      if (!successful) {
+        throw new Error("Copy command failed");
+      }
+    }
+  } catch (err) {
+    console.error("Failed to copy text: ", err);
+    showNotification("Failed to copy transcript", "error");
+    throw err;
+  }
 }
 
 // Download text as file
 function downloadAsFile(text, filename) {
-	if (!text) {
-		showNotification("No transcript to download", "error");
-		throw new Error("No transcript to download");
-	}
+  if (!text) {
+    showNotification("No transcript to download", "error");
+    throw new Error("No transcript to download");
+  }
 
-	try {
-		const blob = new Blob([text], { type: "text/plain" });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement("a");
-		a.href = url;
-		a.download = filename;
-		document.body.appendChild(a);
-		a.click();
-		document.body.removeChild(a);
-		URL.revokeObjectURL(url);
-	} catch (err) {
-		console.error("Failed to download file: ", err);
-		showNotification("Failed to download transcript", "error");
-		throw err;
-	}
+  try {
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Failed to download file: ", err);
+    showNotification("Failed to download transcript", "error");
+    throw err;
+  }
 }
 
 // Fetch transcript from YouTube's native transcript panel
 async function fetchTranscript() {
-	try {
-		lastTranscript = "";
+  try {
+    lastTranscript = "";
 
-		// Check if transcript panel is already open
-		const transcriptContainerSelector =
-			".ytd-transcript-segment-list-renderer#segments-container";
-		let transcriptContainer = document.querySelector(
-			transcriptContainerSelector,
-		);
+    // Check if transcript panel is already open
+    const transcriptContainerSelector =
+      ".ytd-transcript-segment-list-renderer#segments-container";
+    let transcriptContainer = document.querySelector(
+      transcriptContainerSelector
+    );
 
-		// If transcript panel is not open, try to open it
-		if (!transcriptContainer || !transcriptContainer.offsetParent) {
-			// Look for the "Show transcript" button
-			const showTranscriptButtonSelector =
-				'#primary-button > ytd-button-renderer > yt-button-shape > button[aria-label="Show transcript"]';
-			const showTranscriptButton = await waitForElement(
-				showTranscriptButtonSelector,
-				3000,
-			);
+    // If transcript panel is not open, try to open it
+    if (!transcriptContainer || !transcriptContainer.offsetParent) {
+      // Look for the "Show transcript" button
+      const showTranscriptButtonSelector =
+        '#primary-button > ytd-button-renderer > yt-button-shape > button[aria-label="Show transcript"]';
+      const showTranscriptButton = await waitForElement(
+        showTranscriptButtonSelector,
+        3000
+      );
 
-			if (showTranscriptButton) {
-				showTranscriptButton.click();
-			} else {
-				throw new Error(
-					"Could not find 'Show transcript' button. Make sure transcript is available for this video.",
-				);
-			}
+      if (showTranscriptButton) {
+        showTranscriptButton.click();
+      } else {
+        throw new Error(
+          "Could not find 'Show transcript' button. Make sure transcript is available for this video."
+        );
+      }
 
-			// Wait for transcript panel to load
-			transcriptContainer = await waitForElement(
-				transcriptContainerSelector,
-				5000,
-			);
-			if (!transcriptContainer) {
-				throw new Error(
-					"Transcript panel did not load. Transcript may not be available for this video.",
-				);
-			}
-		}
+      // Wait for transcript panel to load
+      transcriptContainer = await waitForElement(
+        transcriptContainerSelector,
+        5000
+      );
+      if (!transcriptContainer) {
+        throw new Error(
+          "Transcript panel did not load. Transcript may not be available for this video."
+        );
+      }
+    }
 
-		// Extract transcript text
-		const rawTranscript = transcriptContainer.innerText;
+    // Extract transcript text
+    const rawTranscript = transcriptContainer.innerText;
 
-		if (!rawTranscript || rawTranscript.trim() === "") {
-			throw new Error("Transcript is empty or not available.");
-		}
+    if (!rawTranscript || rawTranscript.trim() === "") {
+      throw new Error("Transcript is empty or not available.");
+    }
 
-		// Clean up transcript text and remove timestamps
-		lastTranscript = rawTranscript
-			// .replace(/\n\s*\n/g, "\n")
-			.replace(/^\d{1,2}:\d{2}\n?/gm, "")
-			.trim();
+    // Clean up transcript text and remove timestamps
+    lastTranscript = rawTranscript
+      // .replace(/\n\s*\n/g, "\n")
+      .replace(/^\d{1,2}:\d{2}\n?/gm, "")
+      .trim();
 
-		console.log(lastTranscript);
+    console.log(lastTranscript);
 
-		return lastTranscript;
-	} catch (error) {
-		console.error("Error fetching transcript:", error);
-		showNotification(`Error: ${error.message}`, "error");
-		return null;
-	}
+    return lastTranscript;
+  } catch (error) {
+    console.error("Error fetching transcript:", error);
+    showNotification(`Error: ${error.message}`, "error");
+    return null;
+  }
 }
 
 // Create transcript button in YouTube UI
 function createTranscriptButton() {
-	if (transcriptButton) return; // Already exists
+  if (transcriptButtonContainer) return; // Already exists
 
-	// target container to be available
-	const container = document.querySelector(
-		"#menu > ytd-menu-renderer.ytd-watch-metadata",
-	);
+  // target container to be available
+  const container = document.querySelector(
+    "#menu > ytd-menu-renderer.ytd-watch-metadata"
+  );
 
-	if (!container) return;
+  if (!container) return;
 
-	// Create button container
-	const buttonContainer = document.createElement("div");
-	buttonContainer.className = "yt-transcript-button-container";
+  // Create button container
+  transcriptButtonContainer = document.createElement("div");
+  transcriptButtonContainer.className = "yt-transcript-button-container";
+  transcriptButtonContainer.id = "yt-transcript-button-container";
 
-	// Create the main transcript button
-	buttonContainer.innerHTML = ` 
-      <p> Transcript </p>
-        <button class="yt-transcript-dropdown-item yt-transcript-button" data-action="download">
+  // Create the main transcript button
+  transcriptButtonContainer.innerHTML = ` 
+        <button class="yt-transcript-dropdown-item yt-transcript-button" data-action="download" title="Download Trasncript">
           <svg class="yt-transcript-icon" fill="none" viewBox="0 0 24 24" swidth="16" height="16"  stroke="currentColor" class="size-6">
             <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m-6 3.75 3 3m0 0 3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75" />
           </svg>
         </button>
-         <button class="yt-transcript-dropdown-item yt-transcript-button" data-action="copy">
+         <button class="yt-transcript-dropdown-item yt-transcript-button" data-action="copy" title="Copy Transcript">
           <svg class="yt-transcript-icon" viewBox="0 0 24 24" width="16" height="16">
             <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" fill="currentColor"/>
             <path d="M12 14L8 18L10.5 20.5L12 19L15.5 22.5L17 21L12 14Z" fill="currentColor"/>
@@ -222,90 +222,91 @@ function createTranscriptButton() {
         </div>
       `;
 
-	// Handle dropdown item clicks
-	buttonContainer.addEventListener("click", async (e) => {
-		e.stopPropagation();
-		const item = e.target.closest(".yt-transcript-dropdown-item");
-		if (!item) return;
+  // Handle dropdown item clicks
+  transcriptButtonContainer.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const item = e.target.closest(".yt-transcript-dropdown-item");
+    if (!item) return;
 
-		const action = item.getAttribute("data-action");
+    const action = item.getAttribute("data-action");
 
-		// Get status elements from main button
-		const spinner = buttonContainer.querySelector(
-			".yt-transcript-status-spinner",
-		);
-		const successIcon = buttonContainer.querySelector(
-			".yt-transcript-status-success",
-		);
-		const errorIcon = buttonContainer.querySelector(
-			".yt-transcript-status-error",
-		);
+    // Get status elements from main button
+    const spinner = transcriptButtonContainer.querySelector(
+      ".yt-transcript-status-spinner"
+    );
+    const successIcon = transcriptButtonContainer.querySelector(
+      ".yt-transcript-status-success"
+    );
+    const errorIcon = transcriptButtonContainer.querySelector(
+      ".yt-transcript-status-error"
+    );
 
-		const showStatus = (type) => {
-			spinner.style.display = type === "loading" ? "block" : "none";
-			successIcon.style.display = type === "success" ? "block" : "none";
-			errorIcon.style.display = type === "error" ? "block" : "none";
+    const showStatus = (type) => {
+      spinner.style.display = type === "loading" ? "block" : "none";
+      successIcon.style.display = type === "success" ? "block" : "none";
+      errorIcon.style.display = type === "error" ? "block" : "none";
 
-			if (type !== "loading") {
-				setTimeout(() => {
-					spinner.style.display = "none";
-					successIcon.style.display = "none";
-					errorIcon.style.display = "none";
-				}, 2000);
-			}
-		};
+      if (type !== "loading") {
+        setTimeout(() => {
+          spinner.style.display = "none";
+          successIcon.style.display = "none";
+          errorIcon.style.display = "none";
+        }, 2000);
+      }
+    };
 
-		try {
-			switch (action) {
-				case "copy": {
-					showStatus("loading");
+    try {
+      switch (action) {
+        case "copy": {
+          showStatus("loading");
 
-					if (!lastTranscript) {
-						await fetchTranscript();
-					}
+          if (!lastTranscript) {
+            await fetchTranscript();
+          }
 
-					if (lastTranscript) {
-						await copyToClipboard(lastTranscript);
-						showStatus("success");
-					}
-					break;
-				}
+          if (lastTranscript) {
+            await copyToClipboard(lastTranscript);
+            showStatus("success");
+          }
+          break;
+        }
 
-				case "download": {
-					showStatus("loading");
+        case "download": {
+          showStatus("loading");
 
-					if (!lastTranscript) {
-						await fetchTranscript();
-					}
+          if (!lastTranscript) {
+            await fetchTranscript();
+          }
 
-					if (lastTranscript) {
-						const videoTitle = document.title
-							.replace(" - YouTube", "")
-							.replace(/[<>:"/\\|?*]+/g, "_");
-						downloadAsFile(lastTranscript, `${videoTitle}_transcript.txt`);
-						showStatus("success");
-					}
-					break;
-				}
-			}
-		} catch (error) {
-			showStatus("error");
-		}
-	});
+          if (lastTranscript) {
+            const videoTitle = document.title
+              .replace(" - YouTube", "")
+              .replace(/[<>:"/\\|?*]+/g, "_");
+            downloadAsFile(lastTranscript, `${videoTitle}_transcript.txt`);
+            showStatus("success");
+          }
+          break;
+        }
+      }
+    } catch (error) {
+      console.log(error);
+      showStatus("error");
+    }
+  });
 
-	container.appendChild(buttonContainer);
+  container.appendChild(transcriptButtonContainer);
 
-	addButtonStyles();
+  addButtonStyles();
 }
 
 // Add styles for the button and dropdown
 function addButtonStyles() {
-	const existingStyles = document.getElementById("yt-transcript-styles");
-	if (existingStyles) return;
+  const existingStyles = document.getElementById("yt-transcript-styles");
+  if (existingStyles) return;
 
-	const style = document.createElement("style");
-	style.id = "yt-transcript-styles";
-	style.textContent = `
+  const style = document.createElement("style");
+  style.id = "yt-transcript-styles";
+  style.textContent = `
     .yt-transcript-button-container {
       margin-left: 8px;
       display: flex;
@@ -423,52 +424,54 @@ function addButtonStyles() {
     }
   `;
 
-	document.head.appendChild(style);
+  document.head.appendChild(style);
 }
 
 // Initialize the extension
 function init() {
-	// Check if button already exists to avoid duplicates
-	if (document.getElementById("yt-transcript-button")) {
-		return;
-	}
+  // Check if button already exists to avoid duplicates
+  if (document.getElementById("yt-transcript-button-container")) {
+    console.log("already exists");
 
-	console.log("YT Transcript Fetcher: Initializing on video page.");
+    return;
+  }
 
-	// Create transcript button with a delay to ensure YouTube UI is loaded
-	setTimeout(() => {
-		createTranscriptButton();
-	}, 1000);
+  console.log("YT Transcript Fetcher: Initializing on video page.");
+
+  // Create transcript button with a delay to ensure YouTube UI is loaded
+  setTimeout(() => {
+    createTranscriptButton();
+  }, 1000);
 }
 
 // Handle messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-	if (request.action === "toggleTranscriptPanel") {
-		sendResponse({ status: "Dropdown toggled" });
-	}
+  if (request.action === "toggleTranscriptPanel") {
+    sendResponse({ status: "Dropdown toggled" });
+  }
 });
 
 // Initialize when page loads
 if (document.readyState === "loading") {
-	document.addEventListener("DOMContentLoaded", init);
+  document.addEventListener("DOMContentLoaded", init);
 } else {
-	init();
+  init();
 }
 
 // Re-initialize on navigation (YouTube SPA behavior)
 let currentUrl = window.location.href;
 const observer = new MutationObserver(() => {
-	if (window.location.href !== currentUrl) {
-		currentUrl = window.location.href;
-		// Reset state
-		transcriptButton = null;
-		lastTranscript = "";
-		// Re-initialize
-		setTimeout(init, 1000);
-	}
+  if (window.location.href !== currentUrl) {
+    currentUrl = window.location.href;
+    // Reset state
+    transcriptButtonContainer = null;
+    lastTranscript = "";
+    // Re-initialize
+    setTimeout(init, 1000);
+  }
 });
 
 observer.observe(document.body, {
-	childList: true,
-	subtree: true,
+  childList: true,
+  subtree: true,
 });
