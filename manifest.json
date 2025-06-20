@@ -19,9 +19,9 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.youtube.com/watch*"],
+      "all_frames":false,
       "js": ["content.js"],
-      "run_at": "document_idle"
+      "matches": ["*://*.youtube.com/"]
     }
   ]
 }
