@@ -199,7 +199,7 @@ function createTranscriptButton() {
   // Create the main transcript button
   transcriptButtonContainer.innerHTML = ` 
         <button class="yt-transcript-dropdown-item yt-transcript-button" data-action="download" title="Download Trasncript">
-          <svg class="yt-transcript-icon" fill="none" viewBox="0 0 24 24" swidth="16" height="16"  stroke="currentColor" class="size-6">
+          <svg class="yt-transcript-icon" fill="none" stroke-width="1.5" viewBox="0 0 24 24" swidth="16" height="16"  stroke="currentColor" class="size-6">
             <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m-6 3.75 3 3m0 0 3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75" />
           </svg>
         </button>
@@ -294,7 +294,7 @@ function createTranscriptButton() {
     }
   });
 
-  container.appendChild(transcriptButtonContainer);
+  container.prepend(transcriptButtonContainer);
 
   addButtonStyles();
 }
