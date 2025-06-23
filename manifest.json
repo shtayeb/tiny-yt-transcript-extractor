@@ -12,10 +12,10 @@
     "service_worker": "background.js"
   },
   "icons": {
-    "16": "icons/icon.png",
-    "32": "icons/icon.png",
-    "48": "icons/icon.png",
-    "128": "icons/icon.png"
+    "16": "icons/hello.png",
+    "32": "icons/hello.png",
+    "48": "icons/hello.png",
+    "128": "icons/hello.png"
   },
   "content_scripts": [
     {

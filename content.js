@@ -110,7 +110,7 @@ async function fetchTranscript() {
     );
 
     // If transcript panel is not open, try to open it
-    if (!transcriptContainer || !transcriptContainer.offsetParent) {
+    if (!transcriptContainer || !transcriptContainer?.offsetParent) {
       // Look for the "Show transcript" button
       const showTranscriptButtonSelector =
         '#primary-button > ytd-button-renderer > yt-button-shape > button[aria-label="Show transcript"]';
