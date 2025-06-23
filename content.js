@@ -429,7 +429,17 @@ function init() {
 // Handle messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "toggleTranscriptPanel") {
-    sendResponse({ status: "Dropdown toggled" });
+    if (transcriptButtonContainer) {
+      transcriptButtonContainer.remove();
+      transcriptButtonContainer = null;
+
+      localStorage.setItem("show_transcript_buttons", "false");
+    } else {
+      localStorage.setItem("show_transcript_buttons", "true");
+      init();
+    }
+
+    sendResponse({ status: "YT transcript toggled" });
   }
 });
 
