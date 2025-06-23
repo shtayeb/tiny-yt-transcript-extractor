@@ -1,4 +1,4 @@
-// content.js
+// @ts-check
 let transcriptButtonContainer = null;
 let lastTranscript = "";
 
@@ -207,19 +207,23 @@ function createTranscriptButton() {
   // Handle dropdown item clicks
   transcriptButtonContainer.addEventListener("click", async (e) => {
     e.stopPropagation();
+
+    const target = e.target;
+    if (!target) return 
+
     const item = e.target.closest(".yt-transcript-dropdown-item");
     if (!item) return;
 
     const action = item.getAttribute("data-action");
 
     // Get status elements from main button
-    const spinner = transcriptButtonContainer.querySelector(
+    const spinner = transcriptButtonContainer?.querySelector(
       ".yt-transcript-status-spinner"
     );
-    const successIcon = transcriptButtonContainer.querySelector(
+    const successIcon = transcriptButtonContainer?.querySelector(
       ".yt-transcript-status-success"
     );
-    const errorIcon = transcriptButtonContainer.querySelector(
+    const errorIcon = transcriptButtonContainer?.querySelector(
       ".yt-transcript-status-error"
     );
 
