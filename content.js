@@ -34,7 +34,6 @@ function waitForElement(selector, timeout = 5000) {
 // Copy text to clipboard
 async function copyToClipboard(text) {
   if (!text) {
-    showNotification("No transcript to copy", "error");
     throw new Error("No transcript to copy");
   }
 
@@ -42,7 +41,6 @@ async function copyToClipboard(text) {
     await navigator.clipboard.writeText(text);
   } catch (err) {
     console.error("Failed to copy text: ", err);
-    showNotification("Failed to copy transcript", "error");
 
     throw err;
   }
@@ -51,7 +49,6 @@ async function copyToClipboard(text) {
 // Download text as file
 function downloadAsFile(text, filename) {
   if (!text) {
-    showNotification("No transcript to download", "error");
     throw new Error("No transcript to download");
   }
 
@@ -67,7 +64,6 @@ function downloadAsFile(text, filename) {
     URL.revokeObjectURL(url);
   } catch (err) {
     console.error("Failed to download file: ", err);
-    showNotification("Failed to download transcript", "error");
     throw err;
   }
 }
@@ -121,16 +117,9 @@ async function fetchTranscript() {
       throw new Error("Transcript is empty or not available.");
     }
 
-    // Clean up transcript text and remove timestamps
-    lastTranscript = rawTranscript
-      // .replace(/\n\s*\n/g, "\n")
-      .replace(/^\d{1,2}:\d{2}\n?/gm, "")
-      .trim();
-
-    return lastTranscript;
+    return rawTranscript;
   } catch (error) {
     console.error("Error fetching transcript:", error);
-    showNotification(`Error: ${error.message}`, "error");
     return null;
   }
 }
@@ -207,14 +196,12 @@ function createTranscriptButton() {
     e.stopPropagation();
 
     const target = e.target;
-    if (!target) return 
+    if (!target) return;
 
     const item = e.target.closest(".yt-transcript-dropdown-item");
     if (!item) return;
 
     const action = item.getAttribute("data-action");
-
-  
 
     try {
       switch (action) {
