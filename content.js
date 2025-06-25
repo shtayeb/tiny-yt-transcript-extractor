@@ -31,31 +31,6 @@ function waitForElement(selector, timeout = 5000) {
   });
 }
 
-// Show notification to user
-function showNotification(message, type = "info") {
-  // Remove existing notification if any
-  const existingNotification = document.getElementById(
-    "yt-transcript-notification"
-  );
-  if (existingNotification) {
-    existingNotification.remove();
-  }
-
-  const notification = document.createElement("div");
-  notification.id = "yt-transcript-notification";
-  notification.className = `yt-transcript-notification ${type}`;
-  notification.textContent = message;
-
-  document.body.appendChild(notification);
-
-  // Auto remove after 3 seconds
-  setTimeout(() => {
-    if (notification?.parentNode) {
-      notification.remove();
-    }
-  }, 3000);
-}
-
 // Copy text to clipboard
 async function copyToClipboard(text) {
   if (!text) {
@@ -151,8 +126,6 @@ async function fetchTranscript() {
       // .replace(/\n\s*\n/g, "\n")
       .replace(/^\d{1,2}:\d{2}\n?/gm, "")
       .trim();
-
-    console.log(lastTranscript);
 
     return lastTranscript;
   } catch (error) {
@@ -363,32 +336,6 @@ function addButtonStyles() {
       to {
         stroke-dashoffset: 0;
       }
-    }
-
-    .yt-transcript-notification {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      padding: 12px 16px;
-      border-radius: 8px;
-      color: white;
-      font-size: 14px;
-      font-weight: 500;
-      z-index: 10000;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      animation: slideIn 0.3s ease;
-    }
-
-    .yt-transcript-notification.info {
-      background: var(--yt-spec-brand-button-text);
-    }
-
-    .yt-transcript-notification.success {
-      background: #00a550;
-    }
-
-    .yt-transcript-notification.error {
-      background: #ff0000;
     }
 
     @keyframes slideIn {
