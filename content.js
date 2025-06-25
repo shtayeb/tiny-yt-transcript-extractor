@@ -294,7 +294,7 @@ function addButtonStyles() {
   style.id = "yt-transcript-styles";
   style.textContent = `
     .yt-transcript-button-container {
-      margin-left: 8px;
+      margin-right: 8px;
       display: flex;
       align-items: center;
       border: 1px solid var(--yt-spec-outline);
