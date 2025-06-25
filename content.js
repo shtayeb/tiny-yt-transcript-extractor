@@ -162,6 +162,31 @@ async function fetchTranscript() {
   }
 }
 
+const showStatus = (type) => {
+  // Get status elements from main button
+  const spinner = transcriptButtonContainer?.querySelector(
+    ".yt-transcript-status-spinner"
+  );
+  const successIcon = transcriptButtonContainer?.querySelector(
+    ".yt-transcript-status-success"
+  );
+  const errorIcon = transcriptButtonContainer?.querySelector(
+    ".yt-transcript-status-error"
+  );
+
+  spinner.style.display = type === "loading" ? "block" : "none";
+  successIcon.style.display = type === "success" ? "block" : "none";
+  errorIcon.style.display = type === "error" ? "block" : "none";
+
+  if (type !== "loading") {
+    setTimeout(() => {
+      spinner.style.display = "none";
+      successIcon.style.display = "none";
+      errorIcon.style.display = "none";
+    }, 2000);
+  }
+};
+
 // Create transcript button in YouTube UI
 function createTranscriptButton() {
   if (transcriptButtonContainer) return; // Already exists
@@ -216,30 +241,7 @@ function createTranscriptButton() {
 
     const action = item.getAttribute("data-action");
 
-    // Get status elements from main button
-    const spinner = transcriptButtonContainer?.querySelector(
-      ".yt-transcript-status-spinner"
-    );
-    const successIcon = transcriptButtonContainer?.querySelector(
-      ".yt-transcript-status-success"
-    );
-    const errorIcon = transcriptButtonContainer?.querySelector(
-      ".yt-transcript-status-error"
-    );
-
-    const showStatus = (type) => {
-      spinner.style.display = type === "loading" ? "block" : "none";
-      successIcon.style.display = type === "success" ? "block" : "none";
-      errorIcon.style.display = type === "error" ? "block" : "none";
-
-      if (type !== "loading") {
-        setTimeout(() => {
-          spinner.style.display = "none";
-          successIcon.style.display = "none";
-          errorIcon.style.display = "none";
-        }, 2000);
-      }
-    };
+  
 
     try {
       switch (action) {
