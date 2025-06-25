@@ -111,13 +111,13 @@ async function fetchTranscript() {
     }
 
     // Extract transcript text
-    const rawTranscript = transcriptContainer.innerText;
+    lastTranscript = transcriptContainer.innerText;
 
-    if (!rawTranscript || rawTranscript.trim() === "") {
+    if (!lastTranscript || lastTranscript.trim() === "") {
       throw new Error("Transcript is empty or not available.");
     }
 
-    return rawTranscript;
+    return lastTranscript;
   } catch (error) {
     console.error("Error fetching transcript:", error);
     return null;
