@@ -1,13 +1,11 @@
-# YouTube Transcript Extractor Plus
+# YouTube Transcript Extractor
 
 A Chrome extension that adds a convenient transcript button directly into YouTube's video interface, allowing you to easily extract, copy, and download video transcripts.
 
 ## Features
 
 - **Seamless Integration**: Adds a "Transcript" button directly to YouTube's video controls
-- **Multiple Actions**: Copy transcript to clipboard, download as text file, or toggle timestamps
-- **Smart Detection**: Automatically detects when transcripts are available
-- **Timestamp Control**: Choose to include or exclude timestamps in your transcript
+- **Multiple Actions**: Copy transcript to clipboard, download as text file
 - **Native Compatibility**: Works with YouTube's built-in transcript system
 
 ## Installation
@@ -30,20 +28,10 @@ A Chrome extension that adds a convenient transcript button directly into YouTub
 
 - **Copy**: Instantly copies the transcript to your clipboard
 - **Download**: Downloads the transcript as a `.txt` file with the video title as filename
-- **Include Timestamps**: Checkbox to control whether timestamps are included in copy/download actions
 
 ### Extension Icon
 
 You can also click the extension icon in your browser toolbar to toggle the dropdown menu when on a YouTube video page.
-
-## How It Works
-
-The extension integrates directly with YouTube's native transcript system:
-
-1. **Automatic Detection**: When you click an action, the extension automatically opens YouTube's transcript panel if it's not already visible
-2. **Native Extraction**: Uses YouTube's built-in transcript data for accuracy
-3. **Smart Processing**: Cleans up the transcript text and formats it properly
-4. **Timestamp Management**: Checkbox control allows you to include or exclude timestamps from transcript output
 
 ## Requirements
 
@@ -79,7 +67,7 @@ yt-transcript/
 ├── manifest.json          # Extension configuration
 ├── content.js             # Main extension logic
 ├── background.js          # Background service worker
-├── icons/                 # Extension icons (if added)
+├── icons/                 # Extension icons 
 └── README.md             # This file
 ```
 
@@ -87,21 +75,7 @@ yt-transcript/
 
 - **No Data Collection**: The extension doesn't collect or transmit any personal data
 - **Local Processing**: All transcript processing happens locally in your browser
-- **YouTube Integration**: Only interacts with YouTube's public transcript API
 - **Minimal Permissions**: Requests only essential permissions for functionality
-
-## Version History
-
-### v1.1 (Current)
-- Replaced floating panel with integrated YouTube UI button
-- Added dropdown menu with copy, download, and timestamp checkbox options
-- Improved transcript extraction using YouTube's native system
-- Enhanced error handling and user notifications
-- Better integration with YouTube's design language
-- Timestamp inclusion controlled by persistent checkbox setting
-
-### v1.0
-- Initial release with floating panel interface
 
 ## Contributing
 
