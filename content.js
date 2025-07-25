@@ -1,6 +1,9 @@
 // @ts-check
-let transcriptButtonContainer = null;
 let lastTranscript = "";
+
+const getTranscriptButtonContainer = () => {
+  return document.querySelector("#yt-transcript-button-container");
+}
 
 // Utility function to wait for an element to appear
 function waitForElement(selector, timeout = 5000) {
@@ -126,32 +129,46 @@ async function fetchTranscript() {
 
 const showStatus = (type) => {
   // Get status elements from main button
-  const spinner = transcriptButtonContainer?.querySelector(
+  const container = getTranscriptButtonContainer()
+
+  const spinner = container?.querySelector(
     ".yt-transcript-status-spinner"
   );
-  const successIcon = transcriptButtonContainer?.querySelector(
+  const successIcon = container?.querySelector(
     ".yt-transcript-status-success"
   );
-  const errorIcon = transcriptButtonContainer?.querySelector(
+  const errorIcon = container?.querySelector(
     ".yt-transcript-status-error"
   );
 
-  spinner.style.display = type === "loading" ? "block" : "none";
-  successIcon.style.display = type === "success" ? "block" : "none";
-  errorIcon.style.display = type === "error" ? "block" : "none";
+  if (spinner) {
+    spinner.style.display = type === "loading" ? "block" : "none";
+  }
+  if (successIcon) {
+    successIcon.style.display = type === "success" ? "block" : "none";
+  }
+  if (errorIcon) {
+    errorIcon.style.display = type === "error" ? "block" : "none";
+  }
 
   if (type !== "loading") {
     setTimeout(() => {
-      spinner.style.display = "none";
-      successIcon.style.display = "none";
-      errorIcon.style.display = "none";
+      if (spinner) {
+        spinner.style.display = "none";
+      }
+      if (successIcon) {
+        successIcon.style.display = "none";
+      }
+      if (errorIcon) {
+        errorIcon.style.display = "none";
+      }
     }, 2000);
   }
 };
 
 // Create transcript button in YouTube UI
 function createTranscriptButton() {
-  if (transcriptButtonContainer) return; // Already exists
+  if (getTranscriptButtonContainer()) return; // Already exists
 
   // target container to be available
   const container = document.querySelector(
@@ -161,7 +178,7 @@ function createTranscriptButton() {
   if (!container) return;
 
   // Create button container
-  transcriptButtonContainer = document.createElement("div");
+  const transcriptButtonContainer = document.createElement("div");
   transcriptButtonContainer.className = "yt-transcript-button-container";
   transcriptButtonContainer.id = "yt-transcript-button-container";
 
@@ -369,10 +386,9 @@ function init() {
 // Handle messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "toggleTranscriptPanel") {
-    if (transcriptButtonContainer) {
-      transcriptButtonContainer.remove();
-      transcriptButtonContainer = null;
-
+    const container = getTranscriptButtonContainer() 
+    if (container) {
+      container.remove();
       localStorage.setItem("show_transcript_buttons", "false");
     } else {
       localStorage.setItem("show_transcript_buttons", "true");
@@ -396,8 +412,8 @@ const observer = new MutationObserver(() => {
   if (window.location.href !== currentUrl) {
     currentUrl = window.location.href;
     // Reset state
-    transcriptButtonContainer = null;
     lastTranscript = "";
+
     // Re-initialize
     setTimeout(init, 1000);
   }
