@@ -9,7 +9,9 @@ A Chrome extension that adds a convenient transcript button directly into YouTub
 - **Native Compatibility**: Works with YouTube's built-in transcript system
 
 ## Installation
-
+### Chrome webstore
+- Install via Chrome Webstore: [Tiny Youtube Transcript Extractor](https://chromewebstore.google.com/detail/tiny-youtube-transcript-e/ckdannejaobflfiabbmjakfmejciened)
+### Manual
 1. Download or clone this repository
 2. Open Chrome and navigate to `chrome://extensions/`
 3. Enable "Developer mode" in the top right corner
