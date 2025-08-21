@@ -123,6 +123,7 @@ async function fetchTranscript() {
     return lastTranscript;
   } catch (error) {
     console.error("Error fetching transcript:", error);
+    showStatus("error");
     return null;
   }
 }
