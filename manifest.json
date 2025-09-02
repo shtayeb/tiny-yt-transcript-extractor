@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tiny YouTube Transcript Extractor",
-  "version": "1.3",
+  "version": "1.4",
   "description": "Extract and save YouTube video transcripts instantly with a single click",
   "permissions": ["activeTab", "clipboardWrite"],
   "host_permissions": ["*://*.youtube.com/*"],
